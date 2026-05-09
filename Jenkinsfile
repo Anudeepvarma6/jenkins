@@ -61,7 +61,7 @@ pipeline {
 
                 docker run -d \
                 --name java-container \
-                -p 8081:8080 \
+                -p 8081:5000 \
                 $IMAGE_NAME:latest
                 '''
             }

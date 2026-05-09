@@ -21,17 +21,12 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('sonarqube') {
-                    sh '''
-                    mvn sonar:sonar \
-                    -Dsonar.projectKey=javaapp-standalone \
-                    -Dsonar.host.url=http://172.31.38.125:9000 \
-                    -Dsonar.login=squ_d23709bf0902713ae035903216583862df8571e8
-                    '''
-                }
-            }
+    steps {
+        withSonarQubeEnv('sonarqube') {
+            sh 'mvn sonar:sonar'
         }
+    }
+}
 
         stage('Build') {
             steps {

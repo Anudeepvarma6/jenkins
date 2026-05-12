@@ -2,58 +2,66 @@ pipeline {
 
     agent any
 
+    triggers {
+        githubPush()
+    }
+
     tools {
         jdk 'jdk21'
         maven 'maven3'
     }
 
     environment {
-        IMAGE_NAME = "366476834058.dkr.ecr.ap-south-1.amazonaws.com/java-standalone"
         AWS_REGION = "ap-south-1"
+        ECR_REPO = "366476834058.dkr.ecr.ap-south-1.amazonaws.com/java-standalone"
+        IMAGE_TAG = "latest"
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                git 'https://github.com/Anudeepvarma6/jenkins.git'
+                git branch: 'main',
+                url: 'https://github.com/Anudeepvarma6/jenkins.git'
             }
         }
 
         stage('SonarQube Analysis') {
-    steps {
-        withSonarQubeEnv('sonarqube') {
-            sh 'mvn sonar:sonar'
-        }
-    }
-}
-
-        stage('Build') {
             steps {
-                sh 'mvn clean package'
+                withSonarQubeEnv('sonarqube') {
+                    sh 'mvn sonar:sonar'
+                }
             }
         }
 
         stage('Docker Build') {
             steps {
-                sh 'docker build -t java-app .'
-            }
-        }
-
-        stage('Push to ECR') {
-            steps {
                 sh '''
-                aws ecr get-login-password --region $AWS_REGION | \
-                docker login --username AWS --password-stdin $IMAGE_NAME
-
-                docker tag java-app:latest $IMAGE_NAME:latest
-
-                docker push $IMAGE_NAME:latest
+                docker build -t java-app .
+                docker tag java-app:latest $ECR_REPO:$IMAGE_TAG
                 '''
             }
         }
 
-        stage('Deploy Docker Container') {
+        stage('Push to AWS ECR') {
+            steps {
+
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+
+                    sh '''
+                    aws ecr get-login-password --region $AWS_REGION | \
+                    docker login --username AWS --password-stdin $ECR_REPO
+
+                    docker push $ECR_REPO:$IMAGE_TAG
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy Container') {
             steps {
                 sh '''
                 docker stop java-container || true
@@ -62,11 +70,19 @@ pipeline {
                 docker run -d \
                 --name java-container \
                 -p 8081:5000 \
-                $IMAGE_NAME:latest
+                $ECR_REPO:$IMAGE_TAG
                 '''
             }
         }
-
     }
 
+    post {
+        success {
+            echo 'Application deployed successfully!'
+        }
+
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
 }

@@ -69,7 +69,7 @@ pipeline {
 
                 docker run -d \
                 --name java-container \
-                -p 8081:5000 \
+                -p 6000:5000 \
                 $ECR_REPO:$IMAGE_TAG
                 '''
             }
